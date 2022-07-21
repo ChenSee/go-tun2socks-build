@@ -13,8 +13,9 @@ import (
 const BufSize = 20 * 1024
 const BufSizeUDP = 32 * 1024
 
-// const MTU = 2 * 1024
-const MTU = 65535
+const MTU = 2 * 1024
+
+// const MTU = 65535
 
 type Interface struct {
 	io.ReadWriteCloser

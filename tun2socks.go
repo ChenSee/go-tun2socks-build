@@ -94,7 +94,7 @@ type Shadowsocks struct {
 	VmessOptions
 }
 
-func NewTrojan(Add string, Port int, Password string, SNI string, SkipCertVerify bool, opt []byte) *Trojan {
+func NewVmessOptions(opt []byte) VmessOptions {
 	var options VmessOptions
 	err := json.Unmarshal(opt, &options)
 	if err != nil {
@@ -111,6 +111,11 @@ func NewTrojan(Add string, Port int, Password string, SNI string, SkipCertVerify
 	if options.Mux < 1 {
 		options.Mux = -1
 	}
+	return options
+}
+
+func NewTrojan(Add string, Port int, Password string, SNI string, SkipCertVerify bool, opt []byte) *Trojan {
+	options := NewVmessOptions(opt)
 	return &Trojan{
 		Add:            Add,
 		Port:           Port,
@@ -126,6 +131,17 @@ func (t *Trojan) toVmess() *Vmess {
 		Protocol:     TROJAN,
 		Trojan:       t,
 		VmessOptions: t.VmessOptions,
+	}
+}
+
+func NewShadowsocks(Add string, Port int, Password string, Method string, opt []byte) *Shadowsocks {
+	options := NewVmessOptions(opt)
+	return &Shadowsocks{
+		Add:          Add,
+		Port:         Port,
+		Password:     Password,
+		Method:       Method,
+		VmessOptions: options,
 	}
 }
 
