@@ -15,17 +15,20 @@ import (
 	"syscall"
 	"time"
 
+	vcore "github.com/v2fly/v2ray-core/v4"
+	vproxyman "github.com/v2fly/v2ray-core/v4/app/proxyman"
+	vbytespool "github.com/v2fly/v2ray-core/v4/common/bytespool"
+	verrors "github.com/v2fly/v2ray-core/v4/common/errors"
+	vnet "github.com/v2fly/v2ray-core/v4/common/net"
+	v2filesystem "github.com/v2fly/v2ray-core/v4/common/platform/filesystem"
+	v2stats "github.com/v2fly/v2ray-core/v4/features/stats"
+	"github.com/v2fly/v2ray-core/v4/infra/conf"
+	"github.com/v2fly/v2ray-core/v4/infra/conf/cfgcommon"
+	_ "github.com/v2fly/v2ray-core/v4/infra/conf/geodata/memconservative"
+	_ "github.com/v2fly/v2ray-core/v4/infra/conf/geodata/standard"
+	v2serial "github.com/v2fly/v2ray-core/v4/infra/conf/serial"
+	vinternet "github.com/v2fly/v2ray-core/v4/transport/internet"
 	mobasset "golang.org/x/mobile/asset"
-	vcore "v2ray.com/core"
-	vproxyman "v2ray.com/core/app/proxyman"
-	vbytespool "v2ray.com/core/common/bytespool"
-	verrors "v2ray.com/core/common/errors"
-	vnet "v2ray.com/core/common/net"
-	v2filesystem "v2ray.com/core/common/platform/filesystem"
-	v2stats "v2ray.com/core/features/stats"
-	"v2ray.com/core/infra/conf"
-	v2serial "v2ray.com/core/infra/conf/serial"
-	vinternet "v2ray.com/core/transport/internet"
 
 	"github.com/eycorsican/go-tun2socks/core"
 	"github.com/xxf098/go-tun2socks-build/ping"
@@ -83,6 +86,13 @@ type Trojan struct {
 	SkipCertVerify bool
 	VmessOptions
 }
+type Shadowsocks struct {
+	Add      string
+	Port     int
+	Password string
+	Method   string
+	VmessOptions
+}
 
 func NewTrojan(Add string, Port int, Password string, SNI string, SkipCertVerify bool, opt []byte) *Trojan {
 	var options VmessOptions
@@ -119,6 +129,14 @@ func (t *Trojan) toVmess() *Vmess {
 	}
 }
 
+func (ss *Shadowsocks) toVmess() *Vmess {
+	return &Vmess{
+		Protocol:     SHADOWSOCKS,
+		Shadowsocks:  ss,
+		VmessOptions: ss.VmessOptions,
+	}
+}
+
 // constructor export New
 type Vmess struct {
 	Host     string
@@ -133,7 +151,8 @@ type Vmess struct {
 	Security string // vnext.Security
 	Protocol protocol
 	VmessOptions
-	Trojan *Trojan
+	Trojan      *Trojan
+	Shadowsocks *Shadowsocks
 }
 
 // TODO: default value
@@ -178,6 +197,9 @@ func (profile *Vmess) getProxyOutboundDetourConfig() conf.OutboundDetourConfig {
 	}
 	if profile.Protocol == TROJAN {
 		proxyOutboundConfig = createTrojanOutboundDetourConfig(profile)
+	}
+	if profile.Protocol == SHADOWSOCKS {
+		proxyOutboundConfig = createShadowsocksOutboundDetourConfig(profile)
 	}
 	return proxyOutboundConfig
 }
@@ -317,15 +339,15 @@ func loadVmessConfig(profile *Vmess) (*conf.Config, error) {
 	// 	conf.InboundDetourConfig{
 	// 		Tag:       "socks-in",
 	// 		Protocol:  "socks",
-	// 		PortRange: &conf.PortRange{From: 8088, To: 8088},
-	// 		ListenOn:  &conf.Address{vnet.IPAddress([]byte{127, 0, 0, 1})},
+	// 		PortRange: &cfgcommon.PortRange{From: 8088, To: 8088},
+	// 		ListenOn:  &cfgcommon.Address{vnet.IPAddress([]byte{127, 0, 0, 1})},
 	// 		Settings:  &inboundsSettingsMsg,
 	// 	},
 	// 	conf.InboundDetourConfig{
 	// 		Tag:       "http-in",
 	// 		Protocol:  "http",
-	// 		PortRange: &conf.PortRange{From: 8090, To: 8090},
-	// 		ListenOn:  &conf.Address{vnet.IPAddress([]byte{127, 0, 0, 1})},
+	// 		PortRange: &cfgcommon.PortRange{From: 8090, To: 8090},
+	// 		ListenOn:  &cfgcommon.Address{vnet.IPAddress([]byte{127, 0, 0, 1})},
 	// 	},
 	// }
 	proxyOutboundConfig := profile.getProxyOutboundDetourConfig()
@@ -387,7 +409,7 @@ func loadVmessConfig(profile *Vmess) (*conf.Config, error) {
 // 	vmessOutboundConfig := conf.VMessOutboundConfig{
 // 		Receivers: []*conf.VMessOutboundTarget{
 // 			&conf.VMessOutboundTarget{
-// 				Address: &conf.Address{Address: vnet.NewIPOrDomain(vnet.ParseAddress(profile.Add)).AsAddress()},
+// 				Address: &cfgcommon.Address{Address: vnet.NewIPOrDomain(vnet.ParseAddress(profile.Add)).AsAddress()},
 // 				Port:    uint16(profile.Port),
 // 				Users:   []json.RawMessage{json.RawMessage(vmessUser)},
 // 			},
@@ -501,7 +523,7 @@ func loadVmessTestConfig(profile *Vmess, port uint32) (*conf.Config, error) {
 	jsonConfig.DNSConfig = &conf.DNSConfig{
 		Servers: []*conf.NameServerConfig{
 			&conf.NameServerConfig{
-				Address: &conf.Address{vnet.IPAddress([]byte{223, 5, 5, 5})},
+				Address: &cfgcommon.Address{vnet.IPAddress([]byte{223, 5, 5, 5})},
 				Port:    53,
 			},
 		},
@@ -920,6 +942,18 @@ func StartTrojanTunFd(
 	return StartV2RayWithTunFd(tunFd, vpnService, logService, querySpeed, profile, assetPath)
 }
 
+func StartShadowsocksTunFd(
+	tunFd int,
+	vpnService VpnService,
+	logService LogService,
+	querySpeed QuerySpeed,
+	shadowsocks *Shadowsocks,
+	assetPath string) error {
+	profile := shadowsocks.toVmess()
+	// profile.VmessOptions.RouteMode = 3
+	return StartV2RayWithTunFd(tunFd, vpnService, logService, querySpeed, profile, assetPath)
+}
+
 // StopV2Ray stop v2ray
 func StopV2Ray() {
 	isStopped = true
@@ -943,7 +977,7 @@ func StopV2Ray() {
 	}
 }
 
-// ~/go/src/v2ray.com/core/proxy/vmess/outbound/outbound.go
+// ~/go/src/github.com/v2fly/v2ray-core/v4/proxy/vmess/outbound/outbound.go
 func QueryStats(direct string) int64 {
 	if statsManager == nil {
 		return 0

@@ -13,16 +13,18 @@ import (
 	"strings"
 	"time"
 
+	vcore "github.com/v2fly/v2ray-core/v4"
+	vproxyman "github.com/v2fly/v2ray-core/v4/app/proxyman"
+	verrors "github.com/v2fly/v2ray-core/v4/common/errors"
+	vnet "github.com/v2fly/v2ray-core/v4/common/net"
+	vsession "github.com/v2fly/v2ray-core/v4/common/session"
+	vinbound "github.com/v2fly/v2ray-core/v4/features/inbound"
+	"github.com/v2fly/v2ray-core/v4/infra/conf"
+	"github.com/v2fly/v2ray-core/v4/infra/conf/cfgcommon"
+	json_reader "github.com/v2fly/v2ray-core/v4/infra/conf/json"
+	"github.com/xxf098/go-tun2socks-build/shadowsocks"
 	"github.com/xxf098/go-tun2socks-build/trojan"
 	"github.com/xxf098/go-tun2socks-build/v2ray"
-	vcore "v2ray.com/core"
-	vproxyman "v2ray.com/core/app/proxyman"
-	verrors "v2ray.com/core/common/errors"
-	vnet "v2ray.com/core/common/net"
-	vsession "v2ray.com/core/common/session"
-	vinbound "v2ray.com/core/features/inbound"
-	"v2ray.com/core/infra/conf"
-	json_reader "v2ray.com/core/infra/conf/json"
 )
 
 const (
@@ -307,8 +309,8 @@ func createInboundDetourConfig(proxyPort uint32) conf.InboundDetourConfig {
 	inboundDetourConfig := conf.InboundDetourConfig{
 		Tag:       "socks-in",
 		Protocol:  "socks",
-		PortRange: &conf.PortRange{From: proxyPort, To: proxyPort},
-		ListenOn:  &conf.Address{vnet.IPAddress([]byte{127, 0, 0, 1})},
+		PortRange: &cfgcommon.PortRange{From: proxyPort, To: proxyPort},
+		ListenOn:  &cfgcommon.Address{vnet.IPAddress([]byte{127, 0, 0, 1})},
 		Settings:  &inboundsSettingsMsg,
 	}
 	return inboundDetourConfig
@@ -370,7 +372,7 @@ func createVmessOutboundDetourConfig(profile *Vmess) conf.OutboundDetourConfig {
 		}
 		if profile.Host != "" {
 			hosts := strings.Split(profile.Host, ",")
-			vmessOutboundDetourConfig.StreamSetting.HTTPSettings.Host = conf.NewStringList(hosts)
+			vmessOutboundDetourConfig.StreamSetting.HTTPSettings.Host = cfgcommon.NewStringList(hosts)
 		}
 	}
 
@@ -491,6 +493,30 @@ func createTrojanOutboundDetourConfig(profile *Vmess) conf.OutboundDetourConfig 
 		},
 	}
 	return trojanOutboundDetourConfig
+}
+
+func createShadowsocksOutboundDetourConfig(profile *Vmess) conf.OutboundDetourConfig {
+	config := profile.Shadowsocks
+	outboundsSettings, _ := json.Marshal(shadowsocks.ShadowsocksOutboundsSettings{
+		Servers: []*shadowsocks.ShadowsocksServerTarget{
+			&shadowsocks.ShadowsocksServerTarget{
+				Address:  config.Add,
+				Method:   config.Method,
+				Email:    "xxf098@github.com",
+				Level:    0,
+				OTA:      false,
+				Password: config.Password,
+				Port:     uint16(config.Port),
+			},
+		},
+	})
+	outboundsSettingsMsg := json.RawMessage(outboundsSettings)
+	shadowsocksOutboundDetourConfig := conf.OutboundDetourConfig{
+		Protocol: "shadowsocks",
+		Tag:      "proxy",
+		Settings: &outboundsSettingsMsg,
+	}
+	return shadowsocksOutboundDetourConfig
 }
 
 func createFreedomOutboundDetourConfig(useIPv6 bool) conf.OutboundDetourConfig {
@@ -663,15 +689,15 @@ func creatPolicyConfig() *conf.PolicyConfig {
 func createDNSConfig(routeMode int, dnsConf string) *conf.DNSConfig {
 	// nameServerConfig := []*conf.NameServerConfig{
 	// 	&conf.NameServerConfig{
-	// 		Address: &conf.Address{vnet.IPAddress([]byte{223, 5, 5, 5})},
+	// 		Address: &cfgcommon.Address{vnet.IPAddress([]byte{223, 5, 5, 5})},
 	// 		Port:    53,
 	// 		// Domains: []string{"geosite:cn"},
 	// 	},
-	// 	&conf.NameServerConfig{Address: &conf.Address{vnet.IPAddress([]byte{1, 1, 1, 1})}, Port: 53},
+	// 	&conf.NameServerConfig{Address: &cfgcommon.Address{vnet.IPAddress([]byte{1, 1, 1, 1})}, Port: 53},
 	// }
 	// if routeMode == 2 || routeMode == 3 || routeMode == 4 {
 	// 	nameServerConfig = []*conf.NameServerConfig{
-	// 		&conf.NameServerConfig{Address: &conf.Address{vnet.IPAddress([]byte{1, 1, 1, 1})}, Port: 53},
+	// 		&conf.NameServerConfig{Address: &cfgcommon.Address{vnet.IPAddress([]byte{1, 1, 1, 1})}, Port: 53},
 	// 	}
 	// }
 	dns := strings.Split(dnsConf, ",")
@@ -680,7 +706,7 @@ func createDNSConfig(routeMode int, dnsConf string) *conf.DNSConfig {
 		for i := len(dns) - 1; i >= 0; i-- {
 			split := strings.Split(dns[i], ":")
 			port, _ := strconv.Atoi(split[1])
-			newConfig := &conf.NameServerConfig{Address: &conf.Address{vnet.ParseAddress(split[0])}, Port: uint16(port)}
+			newConfig := &conf.NameServerConfig{Address: &cfgcommon.Address{vnet.ParseAddress(split[0])}, Port: uint16(port)}
 			if i == 1 {
 				newConfig.Domains = []string{"geosite:cn"}
 			}
@@ -690,12 +716,11 @@ func createDNSConfig(routeMode int, dnsConf string) *conf.DNSConfig {
 		// for i := len(dns) - 1; i >= 0; i-- {
 		split := strings.Split(dns[0], ":")
 		port, _ := strconv.Atoi(split[1])
-		newConfig := &conf.NameServerConfig{Address: &conf.Address{vnet.ParseAddress(split[0])}, Port: uint16(port)}
+		newConfig := &conf.NameServerConfig{Address: &cfgcommon.Address{vnet.ParseAddress(split[0])}, Port: uint16(port)}
 		nameServerConfig = append(nameServerConfig, newConfig)
 		// }
 	}
 	return &conf.DNSConfig{
-		Hosts:   v2ray.BlockHosts,
 		Servers: nameServerConfig,
 	}
 }
