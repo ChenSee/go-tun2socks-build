@@ -13,15 +13,14 @@ import (
 	"strings"
 	"time"
 
-	vcore "github.com/v2fly/v2ray-core/v4"
-	vproxyman "github.com/v2fly/v2ray-core/v4/app/proxyman"
-	verrors "github.com/v2fly/v2ray-core/v4/common/errors"
-	vnet "github.com/v2fly/v2ray-core/v4/common/net"
-	vsession "github.com/v2fly/v2ray-core/v4/common/session"
-	vinbound "github.com/v2fly/v2ray-core/v4/features/inbound"
-	"github.com/v2fly/v2ray-core/v4/infra/conf"
-	"github.com/v2fly/v2ray-core/v4/infra/conf/cfgcommon"
-	json_reader "github.com/v2fly/v2ray-core/v4/infra/conf/json"
+	vproxyman "github.com/xtls/xray-core/app/proxyman"
+	verrors "github.com/xtls/xray-core/common/errors"
+	vnet "github.com/xtls/xray-core/common/net"
+	vsession "github.com/xtls/xray-core/common/session"
+	vcore "github.com/xtls/xray-core/core"
+	vinbound "github.com/xtls/xray-core/features/inbound"
+	"github.com/xtls/xray-core/infra/conf"
+	json_reader "github.com/xtls/xray-core/infra/conf/json"
 	"github.com/xxf098/go-tun2socks-build/shadowsocks"
 	"github.com/xxf098/go-tun2socks-build/trojan"
 	"github.com/xxf098/go-tun2socks-build/v2ray"
@@ -307,11 +306,14 @@ func createInboundDetourConfig(proxyPort uint32) conf.InboundDetourConfig {
 	})
 	inboundsSettingsMsg := json.RawMessage(inboundsSettings)
 	inboundDetourConfig := conf.InboundDetourConfig{
-		Tag:       "socks-in",
-		Protocol:  "socks",
-		PortRange: &cfgcommon.PortRange{From: proxyPort, To: proxyPort},
-		ListenOn:  &cfgcommon.Address{vnet.IPAddress([]byte{127, 0, 0, 1})},
-		Settings:  &inboundsSettingsMsg,
+		Tag:      "socks-in",
+		Protocol: "socks",
+		PortList: &conf.PortList{[]conf.PortRange{{
+			From: proxyPort,
+			To:   proxyPort,
+		}}},
+		ListenOn: &conf.Address{vnet.IPAddress([]byte{127, 0, 0, 1})},
+		Settings: &inboundsSettingsMsg,
 	}
 	return inboundDetourConfig
 }
@@ -372,7 +374,7 @@ func createVmessOutboundDetourConfig(profile *Vmess) conf.OutboundDetourConfig {
 		}
 		if profile.Host != "" {
 			hosts := strings.Split(profile.Host, ",")
-			vmessOutboundDetourConfig.StreamSetting.HTTPSettings.Host = cfgcommon.NewStringList(hosts)
+			vmessOutboundDetourConfig.StreamSetting.HTTPSettings.Host = conf.NewStringList(hosts)
 		}
 	}
 
@@ -689,15 +691,15 @@ func creatPolicyConfig() *conf.PolicyConfig {
 func createDNSConfig(routeMode int, dnsConf string) *conf.DNSConfig {
 	// nameServerConfig := []*conf.NameServerConfig{
 	// 	&conf.NameServerConfig{
-	// 		Address: &cfgcommon.Address{vnet.IPAddress([]byte{223, 5, 5, 5})},
+	// 		Address: &conf.Address{vnet.IPAddress([]byte{223, 5, 5, 5})},
 	// 		Port:    53,
 	// 		// Domains: []string{"geosite:cn"},
 	// 	},
-	// 	&conf.NameServerConfig{Address: &cfgcommon.Address{vnet.IPAddress([]byte{1, 1, 1, 1})}, Port: 53},
+	// 	&conf.NameServerConfig{Address: &conf.Address{vnet.IPAddress([]byte{1, 1, 1, 1})}, Port: 53},
 	// }
 	// if routeMode == 2 || routeMode == 3 || routeMode == 4 {
 	// 	nameServerConfig = []*conf.NameServerConfig{
-	// 		&conf.NameServerConfig{Address: &cfgcommon.Address{vnet.IPAddress([]byte{1, 1, 1, 1})}, Port: 53},
+	// 		&conf.NameServerConfig{Address: &conf.Address{vnet.IPAddress([]byte{1, 1, 1, 1})}, Port: 53},
 	// 	}
 	// }
 	dns := strings.Split(dnsConf, ",")
@@ -706,7 +708,7 @@ func createDNSConfig(routeMode int, dnsConf string) *conf.DNSConfig {
 		for i := len(dns) - 1; i >= 0; i-- {
 			split := strings.Split(dns[i], ":")
 			port, _ := strconv.Atoi(split[1])
-			newConfig := &conf.NameServerConfig{Address: &cfgcommon.Address{vnet.ParseAddress(split[0])}, Port: uint16(port)}
+			newConfig := &conf.NameServerConfig{Address: &conf.Address{vnet.ParseAddress(split[0])}, Port: uint16(port)}
 			if i == 1 {
 				newConfig.Domains = []string{"geosite:cn"}
 			}
@@ -716,7 +718,7 @@ func createDNSConfig(routeMode int, dnsConf string) *conf.DNSConfig {
 		// for i := len(dns) - 1; i >= 0; i-- {
 		split := strings.Split(dns[0], ":")
 		port, _ := strconv.Atoi(split[1])
-		newConfig := &conf.NameServerConfig{Address: &cfgcommon.Address{vnet.ParseAddress(split[0])}, Port: uint16(port)}
+		newConfig := &conf.NameServerConfig{Address: &conf.Address{vnet.ParseAddress(split[0])}, Port: uint16(port)}
 		nameServerConfig = append(nameServerConfig, newConfig)
 		// }
 	}

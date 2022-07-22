@@ -15,19 +15,16 @@ import (
 	"syscall"
 	"time"
 
-	vcore "github.com/v2fly/v2ray-core/v4"
-	vproxyman "github.com/v2fly/v2ray-core/v4/app/proxyman"
-	vbytespool "github.com/v2fly/v2ray-core/v4/common/bytespool"
-	verrors "github.com/v2fly/v2ray-core/v4/common/errors"
-	vnet "github.com/v2fly/v2ray-core/v4/common/net"
-	v2filesystem "github.com/v2fly/v2ray-core/v4/common/platform/filesystem"
-	v2stats "github.com/v2fly/v2ray-core/v4/features/stats"
-	"github.com/v2fly/v2ray-core/v4/infra/conf"
-	"github.com/v2fly/v2ray-core/v4/infra/conf/cfgcommon"
-	_ "github.com/v2fly/v2ray-core/v4/infra/conf/geodata/memconservative"
-	_ "github.com/v2fly/v2ray-core/v4/infra/conf/geodata/standard"
-	v2serial "github.com/v2fly/v2ray-core/v4/infra/conf/serial"
-	vinternet "github.com/v2fly/v2ray-core/v4/transport/internet"
+	vproxyman "github.com/xtls/xray-core/app/proxyman"
+	vbytespool "github.com/xtls/xray-core/common/bytespool"
+	verrors "github.com/xtls/xray-core/common/errors"
+	vnet "github.com/xtls/xray-core/common/net"
+	v2filesystem "github.com/xtls/xray-core/common/platform/filesystem"
+	vcore "github.com/xtls/xray-core/core"
+	v2stats "github.com/xtls/xray-core/features/stats"
+	"github.com/xtls/xray-core/infra/conf"
+	v2serial "github.com/xtls/xray-core/infra/conf/serial"
+	vinternet "github.com/xtls/xray-core/transport/internet"
 	mobasset "golang.org/x/mobile/asset"
 
 	"github.com/eycorsican/go-tun2socks/core"
@@ -50,7 +47,7 @@ var statsManager v2stats.Manager
 var isStopped = false
 
 const (
-	v2Asset = "v2ray.location.asset"
+	v2Asset = "xray.location.asset"
 )
 
 type errPathObjHolder struct{}
@@ -355,15 +352,15 @@ func loadVmessConfig(profile *Vmess) (*conf.Config, error) {
 	// 	conf.InboundDetourConfig{
 	// 		Tag:       "socks-in",
 	// 		Protocol:  "socks",
-	// 		PortRange: &cfgcommon.PortRange{From: 8088, To: 8088},
-	// 		ListenOn:  &cfgcommon.Address{vnet.IPAddress([]byte{127, 0, 0, 1})},
+	// 		PortRange: &conf.PortRange{From: 8088, To: 8088},
+	// 		ListenOn:  &conf.Address{vnet.IPAddress([]byte{127, 0, 0, 1})},
 	// 		Settings:  &inboundsSettingsMsg,
 	// 	},
 	// 	conf.InboundDetourConfig{
 	// 		Tag:       "http-in",
 	// 		Protocol:  "http",
-	// 		PortRange: &cfgcommon.PortRange{From: 8090, To: 8090},
-	// 		ListenOn:  &cfgcommon.Address{vnet.IPAddress([]byte{127, 0, 0, 1})},
+	// 		PortRange: &conf.PortRange{From: 8090, To: 8090},
+	// 		ListenOn:  &conf.Address{vnet.IPAddress([]byte{127, 0, 0, 1})},
 	// 	},
 	// }
 	proxyOutboundConfig := profile.getProxyOutboundDetourConfig()
@@ -425,7 +422,7 @@ func loadVmessConfig(profile *Vmess) (*conf.Config, error) {
 // 	vmessOutboundConfig := conf.VMessOutboundConfig{
 // 		Receivers: []*conf.VMessOutboundTarget{
 // 			&conf.VMessOutboundTarget{
-// 				Address: &cfgcommon.Address{Address: vnet.NewIPOrDomain(vnet.ParseAddress(profile.Add)).AsAddress()},
+// 				Address: &conf.Address{Address: vnet.NewIPOrDomain(vnet.ParseAddress(profile.Add)).AsAddress()},
 // 				Port:    uint16(profile.Port),
 // 				Users:   []json.RawMessage{json.RawMessage(vmessUser)},
 // 			},
@@ -539,7 +536,7 @@ func loadVmessTestConfig(profile *Vmess, port uint32) (*conf.Config, error) {
 	jsonConfig.DNSConfig = &conf.DNSConfig{
 		Servers: []*conf.NameServerConfig{
 			&conf.NameServerConfig{
-				Address: &cfgcommon.Address{vnet.IPAddress([]byte{223, 5, 5, 5})},
+				Address: &conf.Address{vnet.IPAddress([]byte{223, 5, 5, 5})},
 				Port:    53,
 			},
 		},
@@ -640,7 +637,7 @@ func StartV2Ray(
 		}
 
 		// Assets
-		os.Setenv("v2ray.location.asset", assetPath)
+		os.Setenv(v2Asset, assetPath)
 		// log
 		registerLogService(logService)
 
@@ -725,7 +722,7 @@ func StartV2RayWithVmess(
 		}
 
 		// Assets
-		os.Setenv("v2ray.location.asset", assetPath)
+		os.Setenv(v2Asset, assetPath)
 		// logger
 		registerLogService(logService)
 		// Protect file descriptors of net connections in the VPN process to prevent infinite loop.
@@ -803,7 +800,7 @@ func StartV2RayWithTunFd(
 	lwipWriter = lwipStack.(io.Writer)
 
 	// init v2ray
-	os.Setenv("v2ray.location.asset", assetPath)
+	os.Setenv(v2Asset, assetPath)
 	registerLogService(logService)
 	// Protect file descriptors of net connections in the VPN process to prevent infinite loop.
 	protectFd := func(s VpnService, fd int) error {
@@ -993,7 +990,7 @@ func StopV2Ray() {
 	}
 }
 
-// ~/go/src/github.com/v2fly/v2ray-core/v4/proxy/vmess/outbound/outbound.go
+// ~/go/src/github.com/xtls/xray-core/proxy/vmess/outbound/outbound.go
 func QueryStats(direct string) int64 {
 	if statsManager == nil {
 		return 0
@@ -1097,13 +1094,13 @@ func initV2Env(assetperfix string) {
 
 func TestConfig(ConfigureFileContent string, assetperfix string) error {
 	initV2Env(assetperfix)
-	// os.Setenv("v2ray.location.asset", assetperfix)
+	// os.Setenv(v2Asset, assetperfix)
 	_, err := v2serial.LoadJSONConfig(strings.NewReader(ConfigureFileContent))
 	return err
 }
 
 func TestVmessLatency(profile *Vmess, port int) (int64, error) {
-	// os.Setenv("v2ray.location.asset", assetPath)
+	// os.Setenv(v2Asset, assetPath)
 	var proxyPort = testProxyPort
 	if port > 0 && port < 65535 {
 		proxyPort = uint32(port)
@@ -1160,7 +1157,7 @@ func TestTCPPing(host string, port int) (int64, error) {
 }
 
 func TestConfigLatency(configBytes []byte, assetPath string) (int64, error) {
-	os.Setenv("v2ray.location.asset", assetPath)
+	os.Setenv(v2Asset, assetPath)
 	server, err := vcore.StartInstance("json", configBytes)
 	if err != nil {
 		return 0, err

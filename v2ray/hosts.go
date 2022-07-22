@@ -1,14 +1,14 @@
 package v2ray
 
 import (
-	vnet "github.com/v2fly/v2ray-core/v4/common/net"
-	"github.com/v2fly/v2ray-core/v4/infra/conf/cfgcommon"
+	vnet "github.com/xtls/xray-core/common/net"
+	"github.com/xtls/xray-core/infra/conf"
 )
 
-var localhost = &cfgcommon.Address{vnet.IPAddress([]byte{0, 0, 0, 0})}
+var localhost = &conf.Address{vnet.IPAddress([]byte{0, 0, 0, 0})}
 
 // no prefix is fullmatch
-var BlockHosts = map[string]*cfgcommon.Address{
+var BlockHosts = map[string]*conf.Address{
 	// "domain:umeng.com": localhost,
 	// "domain:baidu.com":       localhost,
 	// "domain:sogou.com":       localhost,
@@ -32,7 +32,7 @@ var BlockHosts = map[string]*cfgcommon.Address{
 	// "domain:qhimg.com":    localhost,
 	"at3.doubanio.com":     localhost,
 	"p.pinduoduo.com":      localhost,
-	"domain:googleapis.cn": &cfgcommon.Address{vnet.DomainAddress("googleapis.com")},
+	"domain:googleapis.cn": &conf.Address{vnet.DomainAddress("googleapis.com")},
 }
 
 // no prefix is substr
