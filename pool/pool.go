@@ -37,7 +37,7 @@ func OpenTunDevice(tunFd int) (*Interface, error) {
 func (tunDev *Interface) Run(ctx context.Context) {
 	// reader
 	for {
-		data := vbytespool.Alloc(MTU)
+		data := vbytespool.Alloc(BufSize)
 		n, err := tunDev.Read(data)
 		if err != nil && err != io.EOF {
 			return
