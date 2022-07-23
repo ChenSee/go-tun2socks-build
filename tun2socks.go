@@ -656,7 +656,7 @@ func StartV2Ray(
 		vinternet.RegisterListenerController(netCtlr)
 
 		// Share the buffer pool.
-		core.SetBufferPool(vbytespool.GetPool(core.BufSize))
+		core.SetBufferPool(vbytespool.GetPool(pool.BufSize))
 
 		// Start the V2Ray instance.
 		v, err = vcore.StartInstance("json", configBytes)
@@ -740,7 +740,7 @@ func StartV2RayWithVmess(
 		vinternet.RegisterListenerController(netCtlr)
 
 		// Share the buffer pool.
-		core.SetBufferPool(vbytespool.GetPool(core.BufSize))
+		core.SetBufferPool(vbytespool.GetPool(pool.BufSize))
 
 		// Start the V2Ray instance.
 		// configBytes, err := generateVmessConfig(profile)
@@ -815,7 +815,7 @@ func StartV2RayWithTunFd(
 	}
 	vinternet.RegisterDialerController(netCtlr)
 	vinternet.RegisterListenerController(netCtlr)
-	core.SetBufferPool(vbytespool.GetPool(core.BufSize))
+	core.SetBufferPool(vbytespool.GetPool(pool.BufSize))
 
 	v, err = startInstance(profile, nil)
 	if err != nil {
