@@ -384,6 +384,10 @@ func loadVmessConfig(profile *Vmess) (*conf.Config, error) {
 			freedomOutboundDetourConfig,
 		}
 	}
+
+	jsonConfig.InboundConfigs = []conf.InboundDetourConfig{
+		createInboundDetourConfig(uint32(profile.LocalPort)),
+	}
 	// policy
 	jsonConfig.Policy = creatPolicyConfig()
 	// stats
