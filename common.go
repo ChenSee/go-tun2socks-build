@@ -308,10 +308,7 @@ func createInboundDetourConfig(proxyPort uint32) conf.InboundDetourConfig {
 	inboundDetourConfig := conf.InboundDetourConfig{
 		Tag:      "socks-in",
 		Protocol: "socks",
-		PortList: &conf.PortList{[]conf.PortRange{{
-			From: proxyPort,
-			To:   proxyPort,
-		}}},
+		PortList: &conf.PortList{Range: []conf.PortRange{conf.PortRange{From: proxyPort, To: proxyPort}}},
 		ListenOn: &conf.Address{vnet.IPAddress([]byte{127, 0, 0, 1})},
 		Settings: &inboundsSettingsMsg,
 	}

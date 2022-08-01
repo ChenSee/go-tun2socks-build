@@ -323,6 +323,10 @@ func loadVmessConfig(profile *Vmess) (*conf.Config, error) {
 	jsonConfig.DNSConfig = createDNSConfig(profile.RouteMode, profile.DNS)
 	// update rules
 	jsonConfig.RouterConfig = createRouterConfig(profile.RouteMode)
+
+	jsonConfig.InboundConfigs = []conf.InboundDetourConfig{
+		createInboundDetourConfig(uint32(profile.LocalPort)),
+	}
 	// policy
 	// connectionIdle := uint32(300)
 	// downlinkOnly := uint32(1)
@@ -385,9 +389,6 @@ func loadVmessConfig(profile *Vmess) (*conf.Config, error) {
 		}
 	}
 
-	jsonConfig.InboundConfigs = []conf.InboundDetourConfig{
-		createInboundDetourConfig(uint32(profile.LocalPort)),
-	}
 	// policy
 	jsonConfig.Policy = creatPolicyConfig()
 	// stats
