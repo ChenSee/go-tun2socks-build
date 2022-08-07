@@ -34,7 +34,7 @@ import (
 	"github.com/xxf098/go-tun2socks-build/v2ray"
 )
 
-var localDNS = "223.5.5.5:53"
+var localDNS = ""
 var err error
 var lwipStack core.LWIPStack
 var v *vcore.Instance
@@ -1037,12 +1037,14 @@ func QueryOutboundStats(tag string, direct string) int64 {
 // }
 
 func init() {
-	net.DefaultResolver = &net.Resolver{
-		PreferGo: true,
-		Dial: func(ctx context.Context, network, addr string) (net.Conn, error) {
-			d, _ := vnet.ParseDestination(fmt.Sprintf("%v:%v", network, localDNS))
-			return vinternet.DialSystem(ctx, d, nil)
-		},
+	if localDNS != "" {
+		net.DefaultResolver = &net.Resolver{
+			PreferGo: true,
+			Dial: func(ctx context.Context, network, addr string) (net.Conn, error) {
+				d, _ := vnet.ParseDestination(fmt.Sprintf("%v:%v", network, localDNS))
+				return vinternet.DialSystem(ctx, d, nil)
+			},
+		}
 	}
 }
 

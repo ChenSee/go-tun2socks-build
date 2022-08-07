@@ -703,12 +703,19 @@ func createDNSConfig(routeMode int, dnsConf string) *conf.DNSConfig {
 	nameServerConfig := []*conf.NameServerConfig{}
 	// if routeMode == 2 || routeMode == 3 || routeMode == 4 {
 	for i := len(dns) - 1; i >= 0; i-- {
+		newConfig := &conf.NameServerConfig{}
 		split := strings.Split(dns[i], ":")
-		port, _ := strconv.Atoi(split[1])
-		newConfig := &conf.NameServerConfig{Address: &conf.Address{vnet.ParseAddress(split[0])}, Port: uint16(port)}
-		// if i == 1 {
-		// 	newConfig.Domains = []string{"geosite:cn"}
-		// }
+		if strings.Contains(dns[i], "//") {
+			newConfig = &conf.NameServerConfig{Address: &conf.Address{vnet.ParseAddress(dns[i])}, Port: uint16(53)}
+		} else {
+			port, _ := strconv.Atoi(split[1])
+			newConfig = &conf.NameServerConfig{Address: &conf.Address{vnet.ParseAddress(split[0])}, Port: uint16(port)}
+		}
+		if strings.Contains(split[0], "223.") || strings.Contains(split[0], "119.") ||
+			strings.Contains(split[0], "180.") || strings.Contains(split[0], "114.") {
+			newConfig.Domains = []string{"geosite:cn"}
+			newConfig.ExpectIPs = []string{"geoip:cn"}
+		}
 		nameServerConfig = append(nameServerConfig, newConfig)
 	}
 	// } else {
